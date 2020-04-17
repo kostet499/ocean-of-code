@@ -184,23 +184,37 @@ void analyze_enemy(const string &command) {
     }
 }
 
-pair<int, int> check_move_variant(int x, int y) {
-    if (x < 0 || y < 0 || x == width || y == height || !field_mask[x][y] || !my_mask[x][y]) {
-        return make_pair(-1, -1);
+vector<int> check_move_variant(int x, int y, vector<vector<int> > &cur_mask) {
+    if (x < 0 || y < 0 || x == width || y == height || !field_mask[x][y] || !cur_mask[x][y]) {
+        return {0, -1, -1};
     }
-    return make_pair(x, y);
+    int cur_count = 1;
+    cur_mask[x][y] = 0;
+    cur_count += check_move_variant(x + 1, y, cur_mask)[0];
+    cur_count += check_move_variant(x - 1, y, cur_mask)[0];
+    cur_count += check_move_variant(x, y + 1, cur_mask)[0];
+    cur_count += check_move_variant(x, y - 1, cur_mask)[0];
+    return {cur_count, x, y};
 }
 
 char select_move() {
-    vector<pair<pair<int, int>, char> > variants;
-    variants.emplace_back(make_pair(check_move_variant(my_x + 1, my_y), 'E'));
-    variants.emplace_back(make_pair(check_move_variant(my_x - 1, my_y), 'W'));
-    variants.emplace_back(make_pair(check_move_variant(my_x, my_y + 1), 'S'));
-    variants.emplace_back(make_pair(check_move_variant(my_x, my_y - 1), 'N'));
+    vector<pair<vector<int>, char> > variants;
+    auto cur_mask = my_mask;
+    variants.emplace_back(make_pair(check_move_variant(my_x + 1, my_y, cur_mask), 'E'));
+    cur_mask = my_mask;
+    variants.emplace_back(make_pair(check_move_variant(my_x - 1, my_y, cur_mask), 'W'));
+    cur_mask = my_mask;
+    variants.emplace_back(make_pair(check_move_variant(my_x, my_y + 1, cur_mask), 'S'));
+    cur_mask = my_mask;
+    variants.emplace_back(make_pair(check_move_variant(my_x, my_y - 1, cur_mask), 'N'));
+    sort(variants.begin(), variants.end(), greater<>());
 
-    vector<pair<pair<int, int>, char> > pool;
+    vector<pair<vector<int>, char> > pool;
     for (auto var : variants) {
-        if (var.first.first != -1) {
+        if (!pool.empty() && pool.back().first[0] > var.first[0]) {
+            break;
+        }
+        if (var.first[0]) {
             pool.emplace_back(var);
         }
     }
@@ -208,8 +222,8 @@ char select_move() {
         return '?';
     }
     auto pos = pool[rand() % pool.size()];
-    my_x = pos.first.first;
-    my_y = pos.first.second;
+    my_x = pos.first[1];
+    my_y = pos.first[2];
     my_mask[my_x][my_y] = 0;
     return pos.second;
 }
