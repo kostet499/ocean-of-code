@@ -19,6 +19,9 @@ const string move_command = "MOVE";
 const string surface_command = "SURFACE";
 const string torpedo_command = "TORPEDO";
 const string silence_command = "SILENCE";
+const string trigger_command = "TRIGGER";
+
+int enemy_life = 6;
 
 void and_mask(vector<vector<int> > &mask1, const vector<vector<int> > &mask2) {
     for (int i = 0; i < width; ++i) {
@@ -142,7 +145,40 @@ pair<int, int> choose_begin_point() {
     }
 }
 
-void analyze_enemy(const string &command) {
+int damage_x = -1, damage_y = -1;
+
+void analyze_enemy(const string &command, int oppLife) {
+    if (damage_x != -1 && command.find(torpedo_command) == string::npos && command.find(trigger_command) == string::npos) {
+        int diff = oppLife - enemy_life;
+        if (command.find(surface_command) != string::npos) {
+            --diff;
+        }
+        if (diff == 2) {
+            enemy_mask = get_sector_mask(-1);
+            enemy_mask[damage_x][damage_y] = 1;
+        } else if (diff == 1) {
+            auto empty_mask = get_sector_mask(-1);
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    if (max(abs(i - damage_x), abs(j - damage_y)) == 1) {
+                        empty_mask[i][j] = 1;
+                    }
+                }
+            }
+            and_mask(enemy_mask, empty_mask);
+        } else {
+            for (int i = 0; i < width; ++i) {
+                for (int j = 0; j < height; ++j) {
+                    if (max(abs(i - damage_x), abs(j - damage_y)) < 2) {
+                        enemy_mask[i][j] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    enemy_life = oppLife;
+
     for (int i = 0; i < command.size(); ++i) {
         if (command[i] < 'A' || command[i] > 'Z') continue;
 
@@ -229,10 +265,12 @@ char select_move() {
 }
 
 string make_my_command(int torpedoCooldown) {
+    damage_x = -1, damage_y = 1;
     if (torpedoCooldown == 0) {
         set<pair<int, int> > used;
         auto possible_shoot = shoot_torpedo(my_x, my_y, 0, used);
         if (possible_shoot.first != -1) {
+            damage_x = possible_shoot.first, damage_y = possible_shoot.second;
             return torpedo_command + " " + to_string(possible_shoot.first) + " " + to_string(possible_shoot.second);
         }
     }
@@ -282,7 +320,7 @@ int main()
         cin >> sonarResult; cin.ignore();
         string opponentOrders;
         getline(cin, opponentOrders);
-        analyze_enemy(opponentOrders);
+        analyze_enemy(opponentOrders, oppLife);
         cout << make_my_command(torpedoCooldown) << endl;
     }
 }
